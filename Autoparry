@@ -1,0 +1,75 @@
+-- Assume these are global variables
+local Player = game.Players.LocalPlayer
+local Remotes = game.ReplicatedStorage
+local Balls = workspace.Balls
+
+local Debug = true -- Assuming Debug is a global variable
+local scriptEnabled = false
+
+local function printDebug(...) -- Debug print.
+    if Debug then
+        warn(...)
+    end
+end
+
+local function VerifyBall(Ball) -- Returns nil if the ball isn't a valid projectile; true if it's the right ball.
+    if typeof(Ball) == "Instance" and Ball:IsA("BasePart") and Ball:IsDescendantOf(Balls) and Ball:GetAttribute("realBall") == true then
+        return true
+    end
+end
+
+local function IsTarget() -- Returns true if we are the current target.
+    return Player.Character and Player.Character:FindFirstChild("Highlight")
+end
+
+local function Parry() -- Parries.
+    Remotes:WaitForChild("ParryButtonPress"):Fire()
+end
+
+local function BallHandler(Ball)
+    if not VerifyBall(Ball) then
+        return
+    end
+    
+    printDebug("Ball Spawned:", Ball)
+    
+    local OldPosition = Ball.Position
+    local OldTick = tick()
+    
+    local function PositionChanged()
+        if IsTarget() then
+            local Distance = (Ball.Position - workspace.CurrentCamera.Focus.Position).Magnitude
+            local Velocity = (OldPosition - Ball.Position).Magnitude
+            
+            printDebug("Distance:", Distance, "\nVelocity:", Velocity, "\nTime:", Distance / Velocity)
+        
+            if (Distance / Velocity) <= 11.8 then
+                Parry()
+            end
+        end
+        
+        if tick() - OldTick >= 1/60 then
+            OldTick = tick()
+            OldPosition = Ball.Position
+        end
+    end
+    
+    Ball:GetPropertyChangedSignal("Position"):Connect(PositionChanged)
+end
+
+local function ToggleScript()
+    scriptEnabled = not scriptEnabled
+    
+    if scriptEnabled then
+        printDebug("Script Enabled")
+        Balls.ChildAdded:Connect(BallHandler)
+    else
+        printDebug("Script Disabled")
+        -- Disconnect the connections or perform any cleanup if needed
+        -- Example: Balls.ChildAdded:Disconnect()
+    end
+end
+
+-- Usage
+-- Connect this function to your UI button
+-- e.g., button.MouseButton1Click:Connect(ToggleScript)
